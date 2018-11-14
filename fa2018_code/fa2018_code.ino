@@ -5,14 +5,17 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_Sensor.h>  // not used in this demo but required!
 
-#define LSM9DS1_SCK A5
-#define LSM9DS1_MISO 12
-#define LSM9DS1_MOSI A4
+#define UNIVERSAL_SCK 9
+#define UNIVERSAL_MISO 12
+#define UNIVERSAL_MOSI 10
 #define LSM9DS1_XGCS 6
 #define LSM9DS1_MCS 5
 
 #define BMPaddr1 0x76
 #define BMPaddr2 0x77
+
+#define Turbine1Pin A1
+#define Turbine2Pin A2
 
 //set Delay Between Data Points
 int CollectDelay = 1000;
@@ -22,10 +25,9 @@ int CollectDelay = 1000;
 Adafruit_LSM9DS1 lsmA = Adafruit_LSM9DS1();
 
 //Software-defined SPI
-Adafruit_LSM9DS1 lsmB = Adafruit_LSM9DS1(LSM9DS1_SCK, LSM9DS1_MISO, LSM9DS1_MOSI, LSM9DS1_XGCS, LSM9DS1_MCS);
+Adafruit_LSM9DS1 lsmB = Adafruit_LSM9DS1(UNIVERSAL_SCK, UNIVERSAL_MISO, UNIVERSAL_MOSI, LSM9DS1_XGCS, LSM9DS1_MCS);
 
 Adafruit_BMP280 bmeA; // first sensor
-//Adafruit_BMP280 bmeB; // second sensor
 
 uint32_t timer;
 char Filename[] = "18F000.csv";
@@ -61,11 +63,6 @@ void setup() {
     while (1);
   }
 
-//  if (!bmeB.begin(BMPaddr1)) {  
-//    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-//    while (1);
-//  }
-
   //Init the SD card and format the columns
   if (!SD.begin(4))
     {
@@ -93,8 +90,9 @@ void setup() {
               "AccelX2(m/s^2), AccelY2(m/s^2), AccelZ2(m/s^2),"
               "MagX2(gauss), MagY2(gauss), MagZ2(gauss),"
               "GyroX2(dps), GyroY2(dps), GyroZ2(dps),"
-              "Temp1(C), Pressure1(Pa), Altitude1(m),"
-              "Temp2(C), Pressure2(Pa), Altitude2(m)");
+              "Temp(C), Pressure(Pa), Altitude(m),"
+              "Turbine1Voltage(V)"
+              "Turbine2Voltage(V)");
             dataFile.close();
             break; // leave the loop!
         }
@@ -132,17 +130,18 @@ void loop() {
       RecordData(dataFile, " Accel 1 X: ", a.acceleration.x);
       RecordData(dataFile, " Accel 1 Y: ", a.acceleration.y);
       RecordData(dataFile, " Accel 1 Z: ", a.acceleration.z);
-
+      Serial.println();
+      
       RecordData(dataFile, " Mag 1 X: ", m.magnetic.x);
       RecordData(dataFile, " Mag 1 Y: ", m.magnetic.y);
       RecordData(dataFile, " Mag 1 Z: ", m.magnetic.z);
-
+      Serial.println();
+      
       RecordData(dataFile, " Gyro 1 X: ", g.gyro.x);
       RecordData(dataFile, " Gyro 1 Y: ", g.gyro.y);
       RecordData(dataFile, " Gyro 1 Z: ", g.gyro.z);
     
       Serial.println();
-      delay(200);
   
     // SECOND LSM CODE
     lsmB.read();  /* ask it to read in the data */ 
@@ -166,20 +165,25 @@ void loop() {
     RecordData(dataFile, " Gyro 2 Z: ", g.gyro.z);
   
     Serial.println();
+    
+
+
+    RecordData(dataFile, " Temperature (C): ", bmeA.readTemperature());
+    RecordData(dataFile, " Pressure (Pa): ", bmeA.readPressure());
+    RecordData(dataFile, " Altitude (m): ", bmeA.readAltitude(1017)); // 1017 = local PHX hPa
+    Serial.println();
+
+    long turbineValue = analogRead(Turbine1Pin);
+    RecordData(dataFile, " Turbine 1 Volt (V): ", (turbineValue*3.3)/4095);
+
+    Serial.println();
+
+    turbineValue = analogRead(Turbine2Pin);
+    RecordData(dataFile, " Turbine 2 Volt (V): ", (turbineValue*3.3)/4095);
+    timer = millis(); // reset the timer
+    Serial.println();
     dataFile.println();
     dataFile.close();
-    timer = millis(); // reset the timer
-
-    RecordData(dataFile, " Temperature 1 (C): ", bmeA.readTemperature());
-    RecordData(dataFile, " Pressure 1 (Pa): ", bmeA.readPressure());
-    RecordData(dataFile, " Altitude 1 (m): ", bmeA.readAltitude(1017)); // 1017 = local PHX hPa
-    Serial.println();
-//
-//    RecordData(dataFile, " Temperature 2 (C): ", bmeB.readTemperature());
-//    RecordData(dataFile, " Pressure 2 (Pa): ", bmeB.readPressure());
-//    RecordData(dataFile, " Altitude 2 (m): ", bmeB.readAltitude(1017));
-//    Serial.println();
-
   }
 }
 
